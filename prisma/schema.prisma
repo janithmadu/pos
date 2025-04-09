@@ -1,0 +1,112 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Product {
+  id         String      @id @default(uuid())
+  name       String
+  sku        String      @unique
+  price      Decimal
+  stock      Int // Current stock quantity
+  minStock    Int
+  image      String
+  categoryId String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  Inventory  Inventory[]
+  category   Category    @relation(fields: [categoryId], references: [id],onDelete: Cascade)
+  orderItems OrderItem[]
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  products    Product[]
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Decimal // Price at time of purchase
+  subtotal  Decimal // quantity * price
+
+  order   Order   @relation(fields: [orderId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+}
+
+model Order {
+  id         String      @id @default(uuid())
+  userId     String
+  totalPrice Decimal
+  payment    Payment? // Remove the `paymentId` field and use a relation
+  orderItems OrderItem[]
+  user       User        @relation(fields: [userId], references: [id])
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String // Hashed password
+  role      Role // ENUM (Admin, Cashier, Manager)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[] // Relation: User can create many orders
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  orderId       String        @unique // Ensure one payment per order
+  amount        Decimal
+  method        PaymentMethod
+  transactionId String?
+  status        PaymentStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+
+  order Order @relation(fields: [orderId], references: [id])
+}
+
+model Inventory {
+  id        String   @id @default(uuid())
+  productId String
+  change    Int // Positive = added, Negative = removed
+  reason    String
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id])
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  STRIPE
+  PAYPAL
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum Role {
+  ADMIN
+  CASHIER
+  MANAGER
+}
