@@ -23,40 +23,167 @@ import {
   Product,
   ProductAddinFormZodSchema,
 } from "./ProductAddinFormZodSchema";
-// import { useCategoryStore } from "@/stores/useCategoryStore";
-
+import { useCategoryStore } from "@/stores/useCategoryStore";
+import { useTokenStore } from "@/stores/useTokenStore";
+import { toast } from "react-toastify";
+import { useDialogStore } from "@/stores/useDialogBoxStore";
+import { useProductStore } from "@/stores/useProductStore";
 
 function ProductAddingForm() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
+  //const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const isDialogOpen = useDialogStore((state) => state.isDialogOpen);
+  const setIsDialogOpen = useDialogStore((state) => state.setIsDialogOpen);
+  const categories = useCategoryStore((state) => state.categories);
+  const loading = useCategoryStore((state) => state.loading);
+  const error = useCategoryStore((state) => state.error);
+  const hasFetched = useCategoryStore((state) => state.hasFetched);
+  const fetchCategories = useCategoryStore((state) => state.fetchCategories);
+  const token = useTokenStore((state) => state.accessToken);
+  const getSelectedProductId = useProductStore(
+    (state) => state.selectedProductId
+  );
+  const setSelectedProductId = useProductStore(
+    (state) => state.setSelectedProductId
+  );
+  const getProducts = useProductStore((state) => state.products);
+  const [productName, setproductName] = useState<String>("");
 
   const {
     control,
     handleSubmit,
     formState: { errors },
     reset,
+    setValue,
   } = useForm<Product>({
     resolver: zodResolver(ProductAddinFormZodSchema),
+    defaultValues: {
+      category: "",
+      image: "",
+      minStock: 0,
+      name: "",
+      price: 0,
+      sku: "",
+      stock: 0,
+    },
   });
 
-  const onSubmit: SubmitHandler<Product> = (data) => {
-    console.log(data);
+  //Get Category for adding product
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchCategories(token as string);
+    return () => {
+      controller.abort;
+    };
+  }, [token]);
+
+  //End Get Category for adding product
+
+  //Product Adding Function
+
+  const onSubmit: SubmitHandler<Product> = async (data) => {
+    const controller = new AbortController();
     setIsDialogOpen(false);
+
+    try {
+      //Create Product Using API
+
+      const product = await fetch("/api/protect/product", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (product.ok) {
+        toast.success("Product Added Successfully!");
+        reset();
+      } else {
+        toast.error("Failed to add product");
+      }
+
+      //End Create Product Using API
+      return () => controller.abort();
+    } catch (error) {
+      toast.error("Failed to add product. Please try again.");
+    }
+
     reset();
   };
+  // End Product Adding Function
+
+  //Set Product For Update
+  useEffect(() => {
+    //Filter Updateing Product
+    const getUpdatingProduct = getProducts.filter((product) => {
+      return product.id === getSelectedProductId;
+    });
+    setValue("id", getSelectedProductId as string);
+    setValue("name", getUpdatingProduct[0]?.name);
+    setValue("price", Number(getUpdatingProduct[0]?.price));
+    setValue("stock", getUpdatingProduct[0]?.stock);
+    setValue("minStock", getUpdatingProduct[0]?.minStock);
+    setValue("sku", getUpdatingProduct[0]?.sku);
+    setValue("image", getUpdatingProduct[0]?.image);
+    setValue("category", getUpdatingProduct[0]?.category.id as string);
+    setproductName(getUpdatingProduct[0]?.category.name);
+  }, [getSelectedProductId]);
+  //End Set Product For Update
+
+  //Empty select product ID and open Dialog Box
+  async function openDialog() {
+    setIsDialogOpen(!isDialogOpen);
+    setSelectedProductId("");
+  }
+  // End Empty select product ID and open Dialog Box
+
+  // Start Update Product Using API
+
+  const updateProduct: SubmitHandler<Product> = async (data) => {
+    try {
+      const response = await fetch("/api/protect/product", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(data),
+      });
+      const result = await response.json();
+      console.log(result);
+      if (response.ok) {
+        toast.success("Product updated successfully");
+      }
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  // End Update Product Using API
 
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <Dialog open={isDialogOpen} onOpenChange={openDialog}>
       <DialogTrigger asChild>
         <Button>
           <Plus className="mr-2 h-4 w-4" /> Add Product
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px] max-h-[700px] overflow-scroll">
+      <DialogContent className="sm:max-w-[425px] max-h-[500px] overflow-y-scroll">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle>
+            {" "}
+            {getSelectedProductId ? "Update Product" : "Add New Product"}{" "}
+          </DialogTitle>
         </DialogHeader>
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+        <form
+          className="space-y-4"
+          onSubmit={handleSubmit(
+            getSelectedProductId ? updateProduct : onSubmit
+          )}
+        >
           <div className="grid w-full gap-4">
             <div className="grid gap-2">
               <Label htmlFor="name">Product Name</Label>
@@ -78,14 +205,21 @@ function ProductAddingForm() {
                 render={({ field }) => (
                   <Select onValueChange={field.onChange}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
+                      <SelectValue
+                        placeholder={
+                          productName ? productName : "Select Category"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {/* {categories.map((category) => (
-                        <SelectItem id={category.id} value={category.name}>
+                      {categories.map((category) => (
+                        <SelectItem
+                          key={category.id}
+                          value={category.id as string}
+                        >
                           {category.name}
                         </SelectItem>
-                      ))} */}
+                      ))}
                     </SelectContent>
                   </Select>
                 )}
@@ -107,7 +241,14 @@ function ProductAddingForm() {
                     {...field}
                     type="number"
                     step="0.01"
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    min="0"
+                    onChange={(e) => {
+                      // Handle empty input and invalid numbers
+                      const value = e.target.value;
+                      const num: any = value === "" ? null : parseFloat(value);
+                      field.onChange(isNaN(num) ? null : num);
+                    }}
+                    value={field.value ?? ""} // Show empty string instead of null/undefined
                   />
                 )}
               />
@@ -125,7 +266,13 @@ function ProductAddingForm() {
                   <Input
                     {...field}
                     type="number"
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => {
+                      // Handle empty input and invalid numbers
+                      const value = e.target.value;
+                      const num: any = value === "" ? null : parseFloat(value);
+                      field.onChange(isNaN(num) ? null : num);
+                    }}
+                    value={field.value ?? ""} // Show empty string instead of null/undefined
                   />
                 )}
               />
@@ -143,7 +290,13 @@ function ProductAddingForm() {
                   <Input
                     {...field}
                     type="number"
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => {
+                      // Handle empty input and invalid numbers
+                      const value = e.target.value;
+                      const num: any = value === "" ? null : parseFloat(value);
+                      field.onChange(isNaN(num) ? null : num);
+                    }}
+                    value={field.value ?? ""} // Show empty string instead of null/undefined
                   />
                 )}
               />
@@ -187,7 +340,11 @@ function ProductAddingForm() {
             >
               Cancel
             </Button>
-            <Button type="submit">Add Product</Button>
+            {getSelectedProductId === "" ? (
+              <Button type="submit">Add Product</Button>
+            ) : (
+              <Button type="submit">Update Product</Button>
+            )}
           </div>
         </form>
       </DialogContent>

@@ -12,6 +12,15 @@ export const POST = async (req: Request) => {
       return NextResponse.json({ error: "Name Required" }, { status: 401 });
     }
 
+    //Check Category Alredy Exsiting
+    const category = await prisma.category.findUnique({ where: { name } });
+    if (category) {
+      return NextResponse.json(
+        { error: "Category Already Exsiting" },
+        { status: 409 }
+      );
+    }
+
     //Add Category to database
 
     await prisma.category.create({

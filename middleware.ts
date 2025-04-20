@@ -7,7 +7,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key_here";
 export async function middleware(req: Request) {
   const encoder = new TextEncoder();
   const encodedSecretKey = encoder.encode(JWT_SECRET);
-  const token = req.headers.get("Authorization")?.split(" ")[1]; // Expecting format "Bearer <token>"
+  const token = req.headers.get("Authorization")?.split(" ")[1]; 
 
   if (!token) {
     return NextResponse.json({ error: "Token is required" }, { status: 401 });

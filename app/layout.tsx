@@ -1,15 +1,16 @@
-import './globals.css';
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import "./globals.css";
+import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
-import Sidebar from '@/components/sidebar';
+import Sidebar from "@/components/sidebar";
+import { ToastContainer } from "react-toastify";
 
-const inter = Inter({ subsets: ['latin'] });
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'Modern POS System',
-  description: 'Advanced Point of Sale System',
+  title: "Modern POS System",
+  description: "Advanced Point of Sale System",
 };
 
 export default function RootLayout({
@@ -34,6 +35,7 @@ export default function RootLayout({
           </div>
           <Toaster />
         </ThemeProvider>
+        <ToastContainer />
       </body>
     </html>
   );

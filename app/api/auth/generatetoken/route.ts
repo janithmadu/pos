@@ -8,7 +8,7 @@ export async function POST(req: Request) {
 
     try {
         const secretKey = req.headers.get("Authorization")?.split(" ")[1];
-        console.log();
+     
 
         if (!secretKey) {
             return NextResponse.json(
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ message: "Token generated", token });
 
     } catch (error) {
-        console.log(error);
+    
 
         return NextResponse.json(
             { error: "Internal Server Error" },

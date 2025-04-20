@@ -31,7 +31,7 @@ export const POST = async (req: Request) => {
       },
     });
     return NextResponse.json(
-      { messege: "Product Addin Success" },
+      { messege: "Product Addin Success!" },
       { status: 200 }
     );
   } catch (error) {
@@ -46,7 +46,13 @@ export const POST = async (req: Request) => {
 export const GET = async () => {
   try {
     //Get Product From Databse
-    const getproduct = await prisma.product.findMany();
+    const getproduct = await prisma.product.findMany({
+      include:{
+        category: true,
+        Inventory:true,
+        orderItems:true
+      }
+    });
     return NextResponse.json({ getproduct }, { status: 200 });
   } catch (error) {
     return NextResponse.json({ error: error }, { status: 500 });
@@ -85,8 +91,6 @@ export const PATCH = async (req: Request) => {
       { status: 200 }
     );
   } catch (error) {
-    console.log(error);
-
     return NextResponse.json({ error: error }, { status: 500 });
   } finally {
     await prisma.$disconnect();

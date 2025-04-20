@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -14,35 +13,26 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import {
   Search,
-  Plus,
   AlertCircle,
   Package,
   PackageOpen,
   ArrowUpDown,
+  Package2,
+  Trash,
+  Edit,
 } from "lucide-react";
 import ProductAddingForm from "@/components/ProductAddingForm/ProductAddingForm";
 import CategoryAddingForm from "@/components/CategoryAddingForm/CategoryAddingForm";
+import { Category } from "@/components/ProductAddingForm/ProductAddinFormZodSchema";
+import { useProductStore } from "@/stores/useProductStore";
+import { useTokenStore } from "@/stores/useTokenStore";
+import { useDialogStore } from "@/stores/useDialogBoxStore";
 
 interface Product {
   id: string;
   name: string;
-  category: string;
+  category: Category;
   price: number;
   stock: number;
   sku: string;
@@ -51,87 +41,45 @@ interface Product {
   lastUpdated: string;
 }
 
-const initialProducts: Product[] = [
-  {
-    id: "1",
-    name: "Coffee Latte",
-    category: "drinks",
-    price: 4.99,
-    stock: 150,
-    sku: "COF001",
-    image: "https://images.unsplash.com/photo-1541167760496-1628856ab772?w=200",
-    minStock: 100,
-    lastUpdated: "2024-03-21",
-  },
-  {
-    id: "2",
-    name: "Americano",
-    category: "drinks",
-    price: 3.99,
-    stock: 80,
-    sku: "COF002",
-    image: "https://images.unsplash.com/photo-1580933073521-dc49ac0d4e6a?w=200",
-    minStock: 100,
-    lastUpdated: "2024-03-21",
-  },
-  {
-    id: "3",
-    name: "Croissant",
-    category: "food",
-    price: 2.99,
-    stock: 45,
-    sku: "BKY001",
-    image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=200",
-    minStock: 50,
-    lastUpdated: "2024-03-21",
-  },
-  {
-    id: "4",
-    name: "Blueberry Muffin",
-    category: "food",
-    price: 3.49,
-    stock: 30,
-    sku: "BKY002",
-    image: "https://images.unsplash.com/photo-1607958996333-41aef7caefaa?w=200",
-    minStock: 40,
-    lastUpdated: "2024-03-21",
-  },
-];
-
 export default function InventoryPage() {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortConfig, setSortConfig] = useState({
-    key: "name",
-    direction: "asc",
-  });
+  const generateToken = useTokenStore((state) => state.generateNewToken);
+  // Token Generation Start
+  useEffect(() => {
+    generateToken();
+  }, [generateToken]);
+  // Token Generation End
 
-  const lowStockCount = products.filter((p) => p.stock <= p.minStock).length;
-  const totalItems = products.reduce((sum, p) => sum + p.stock, 0);
-  const categories = ["all", ...new Set(products.map((p) => p.category))];
+  const token = useTokenStore((state) => state.accessToken);
 
-  const handleSort = (key: keyof Product) => {
-    const direction =
-      sortConfig.key === key && sortConfig.direction === "asc" ? "desc" : "asc";
-    setSortConfig({ key, direction });
-  };
-
-  const sortedProducts = [...products].sort((a, b) => {
-    if (sortConfig.direction === "asc") {
-      return a[sortConfig.key] > b[sortConfig.key] ? 1 : -1;
+  //Fetch Product
+  useEffect(() => {
+    if (!token) {
+      return;
     }
-    return a[sortConfig.key] < b[sortConfig.key] ? 1 : -1;
-  });
+    useProductStore.getState().fetchProducts(token);
+  }, [token]);
+  //End Fetch Product
+  const getProduct = useProductStore((state) => state.products);
 
-  const filteredProducts = sortedProducts.filter((product) => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const lowStockCount = products?.filter((p) => p.stock <= p.minStock).length;
+  const totalItems = products?.reduce((sum, p) => sum + p.stock, 0);
+  const setIsDialogOpen = useDialogStore((state) => state.setIsDialogOpen);
+  const setProductID = useProductStore((state) => state.setSelectedProductId);
+
+  const filteredProducts = getProduct?.filter((product) => {
     const matchesSearch =
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       product.sku.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory =
-      categoryFilter === "all" || product.category === categoryFilter;
-    return matchesSearch && matchesCategory;
+    return matchesSearch;
   });
+
+  useEffect(() => {
+    setProducts(getProduct);
+  }, [getProduct]);
+
+  async function deleteProduct(id: string) {}
 
   return (
     <div className="p-8 space-y-8">
@@ -154,7 +102,7 @@ export default function InventoryPage() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{products.length}</div>
+            <div className="text-2xl font-bold">{products?.length}</div>
           </CardContent>
         </Card>
 
@@ -195,18 +143,6 @@ export default function InventoryPage() {
             className="pl-10"
           />
         </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            {categories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       <div className="border rounded-lg">
@@ -214,62 +150,54 @@ export default function InventoryPage() {
           <TableHeader>
             <TableRow>
               <TableHead className="w-[80px]">Image</TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("name")}
-              >
+              <TableHead className="cursor-pointer">
                 <div className="flex items-center">
                   Product Name
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </div>
               </TableHead>
               <TableHead>SKU</TableHead>
-              <TableHead
-                className="cursor-pointer"
-                onClick={() => handleSort("category")}
-              >
+              <TableHead className="cursor-pointer">
                 <div className="flex items-center">
                   Category
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </div>
               </TableHead>
-              <TableHead
-                className="text-right cursor-pointer"
-                onClick={() => handleSort("price")}
-              >
+              <TableHead className="text-right cursor-pointer">
                 <div className="flex items-center justify-end">
                   Price
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </div>
               </TableHead>
-              <TableHead
-                className="text-right cursor-pointer"
-                onClick={() => handleSort("stock")}
-              >
+              <TableHead className="text-right cursor-pointer">
                 <div className="flex items-center justify-end">
                   Stock
                   <ArrowUpDown className="ml-2 h-4 w-4" />
                 </div>
               </TableHead>
               <TableHead className="text-right">Status</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProducts.map((product) => (
+            {filteredProducts?.map((product) => (
               <TableRow key={product.id}>
                 <TableCell>
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-10 h-10 rounded object-cover"
-                  />
+                  {!product.image ? (
+                    <Package2 />
+                  ) : (
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-10 h-10 rounded object-cover"
+                    />
+                  )}
                 </TableCell>
                 <TableCell className="font-medium">{product.name}</TableCell>
                 <TableCell>{product.sku}</TableCell>
-                <TableCell>{product.category}</TableCell>
-                <TableCell className="text-right">
-                  ${product.price.toFixed(2)}
-                </TableCell>
+
+                <TableCell>{product.category.name}</TableCell>
+                <TableCell className="text-right">${product.price}</TableCell>
                 <TableCell className="text-right">{product.stock}</TableCell>
                 <TableCell className="text-right">
                   <Badge
@@ -283,6 +211,19 @@ export default function InventoryPage() {
                       ? "Low Stock"
                       : "In Stock"}
                   </Badge>
+                </TableCell>
+                <TableCell className="text-right flex gap-x-3 items-center justify-end">
+                  <button>
+                    <Trash />
+                  </button>
+                  <button
+                    onClick={() => {
+                      setProductID(product.id);
+                      setIsDialogOpen(true);
+                    }}
+                  >
+                    <Edit />
+                  </button>
                 </TableCell>
               </TableRow>
             ))}
