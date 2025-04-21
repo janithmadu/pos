@@ -28,6 +28,10 @@ import { Category } from "@/components/ProductAddingForm/ProductAddinFormZodSche
 import { useProductStore } from "@/stores/useProductStore";
 import { useTokenStore } from "@/stores/useTokenStore";
 import { useDialogStore } from "@/stores/useDialogBoxStore";
+import FullScreenLoader from "@/components/FullScreenLoader";
+import Swal from "sweetalert2";
+import "sweetalert2/dist/sweetalert2.min.css";
+import { toast } from "react-toastify";
 
 interface Product {
   id: string;
@@ -43,6 +47,8 @@ interface Product {
 
 export default function InventoryPage() {
   const generateToken = useTokenStore((state) => state.generateNewToken);
+  const [loading, setloading] = useState<boolean>(false);
+  const [open, setOpen] = useState(false);
   // Token Generation Start
   useEffect(() => {
     generateToken();
@@ -53,11 +59,13 @@ export default function InventoryPage() {
 
   //Fetch Product
   useEffect(() => {
+    setloading(true);
     if (!token) {
       return;
     }
     useProductStore.getState().fetchProducts(token);
-  }, [token]);
+    setloading(false);
+  }, [token, setloading]);
   //End Fetch Product
   const getProduct = useProductStore((state) => state.products);
 
@@ -79,7 +87,49 @@ export default function InventoryPage() {
     setProducts(getProduct);
   }, [getProduct]);
 
-  async function deleteProduct(id: string) {}
+  //Delete Product Start
+
+  async function deleteProduct(id: string) {
+    const result = await Swal.fire({
+      title: "Are you sure?",
+      text: "You won't be able to revert this!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#1e1e1e",
+      color: "#fff",
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#555",
+    });
+
+    if (result.isConfirmed) {
+      setloading(true);
+      try {
+        const response = await fetch("/api/protect/product", {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ id }),
+        });
+        if (response.ok) {
+          useProductStore.getState().fetchProducts(token as string);
+          setloading(false);
+          toast.success("Product Delete successfully");
+        } else {
+          toast.error("Failed to delete the product. Please try again.");
+        }
+      } catch (error) {
+        toast.error(
+          "An error occurred while trying to delete the product. Please try again later."
+        );
+      }
+    }
+  }
+  //End Delete Product
+
+  if (loading) {
+    return <FullScreenLoader />;
+  }
 
   return (
     <div className="p-8 space-y-8">
@@ -197,7 +247,7 @@ export default function InventoryPage() {
                 <TableCell>{product.sku}</TableCell>
 
                 <TableCell>{product.category.name}</TableCell>
-                <TableCell className="text-right">${product.price}</TableCell>
+                <TableCell className="text-right">Rs. {product.price}</TableCell>
                 <TableCell className="text-right">{product.stock}</TableCell>
                 <TableCell className="text-right">
                   <Badge
@@ -213,7 +263,7 @@ export default function InventoryPage() {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-right flex gap-x-3 items-center justify-end">
-                  <button>
+                  <button onClick={() => deleteProduct(product.id)}>
                     <Trash />
                   </button>
                   <button

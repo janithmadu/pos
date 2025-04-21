@@ -1,4 +1,5 @@
 import { PrismaClient } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { NextResponse } from "next/server";
 
 const prisma = new PrismaClient();
@@ -35,7 +36,21 @@ export const POST = async (req: Request) => {
       { status: 200 }
     );
   } catch (error) {
-    return NextResponse.json({ error: error }, { status: 500 });
+    if (error instanceof PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        const target = error.meta?.target;
+
+        const fields = Array.isArray(target) ? target.join(", ") : "field";
+        const message = `A record with this ${fields} already exists.`;
+
+        return NextResponse.json({ error: message }, { status: 400 });
+      } else {
+        return NextResponse.json(
+          { error: "Something went wrong" },
+          { status: 500 }
+        );
+      }
+    }
   } finally {
     await prisma.$disconnect();
   }
@@ -47,14 +62,16 @@ export const GET = async () => {
   try {
     //Get Product From Databse
     const getproduct = await prisma.product.findMany({
-      include:{
+      include: {
         category: true,
-        Inventory:true,
-        orderItems:true
-      }
+        Inventory: true,
+        orderItems: true,
+      },
     });
     return NextResponse.json({ getproduct }, { status: 200 });
   } catch (error) {
+    console.log(error);
+    
     return NextResponse.json({ error: error }, { status: 500 });
   } finally {
     await prisma.$disconnect();

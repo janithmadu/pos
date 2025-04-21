@@ -28,15 +28,13 @@ import { useTokenStore } from "@/stores/useTokenStore";
 import { toast } from "react-toastify";
 import { useDialogStore } from "@/stores/useDialogBoxStore";
 import { useProductStore } from "@/stores/useProductStore";
+import FullScreenLoader from "../FullScreenLoader";
 
 function ProductAddingForm() {
   //const [isDialogOpen, setIsDialogOpen] = useState(false);
   const isDialogOpen = useDialogStore((state) => state.isDialogOpen);
   const setIsDialogOpen = useDialogStore((state) => state.setIsDialogOpen);
   const categories = useCategoryStore((state) => state.categories);
-  const loading = useCategoryStore((state) => state.loading);
-  const error = useCategoryStore((state) => state.error);
-  const hasFetched = useCategoryStore((state) => state.hasFetched);
   const fetchCategories = useCategoryStore((state) => state.fetchCategories);
   const token = useTokenStore((state) => state.accessToken);
   const getSelectedProductId = useProductStore(
@@ -47,6 +45,7 @@ function ProductAddingForm() {
   );
   const getProducts = useProductStore((state) => state.products);
   const [productName, setproductName] = useState<String>("");
+  const [loading, setloading] = useState<boolean>(false);
 
   const {
     control,
@@ -82,6 +81,7 @@ function ProductAddingForm() {
   //Product Adding Function
 
   const onSubmit: SubmitHandler<Product> = async (data) => {
+    setloading(true);
     const controller = new AbortController();
     setIsDialogOpen(false);
 
@@ -99,15 +99,22 @@ function ProductAddingForm() {
       });
 
       if (product.ok) {
+        useProductStore.getState().fetchProducts(token as string);
+        setloading(false);
         toast.success("Product Added Successfully!");
         reset();
       } else {
-        toast.error("Failed to add product");
+        setloading(false);
+        const error = await product.json();
+        toast.error(error.error as string);
       }
 
       //End Create Product Using API
       return () => controller.abort();
     } catch (error) {
+      console.log(error);
+
+      setloading(false);
       toast.error("Failed to add product. Please try again.");
     }
 
@@ -123,7 +130,7 @@ function ProductAddingForm() {
     });
     setValue("id", getSelectedProductId as string);
     setValue("name", getUpdatingProduct[0]?.name);
-    setValue("price", Number(getUpdatingProduct[0]?.price));
+    setValue("price", Number(getUpdatingProduct[0]?.price) || 0);
     setValue("stock", getUpdatingProduct[0]?.stock);
     setValue("minStock", getUpdatingProduct[0]?.minStock);
     setValue("sku", getUpdatingProduct[0]?.sku);
@@ -143,6 +150,7 @@ function ProductAddingForm() {
   // Start Update Product Using API
 
   const updateProduct: SubmitHandler<Product> = async (data) => {
+    setloading(true);
     try {
       const response = await fetch("/api/protect/product", {
         method: "PATCH",
@@ -153,16 +161,25 @@ function ProductAddingForm() {
         body: JSON.stringify(data),
       });
       const result = await response.json();
-      console.log(result);
       if (response.ok) {
+        if (!token) {
+          return;
+        }
+        useProductStore.getState().fetchProducts(token);
+        setloading(false);
         toast.success("Product updated successfully");
       }
     } catch (error) {
+      setloading(false);
       console.log(error);
     }
   };
 
   // End Update Product Using API
+
+  if (loading) {
+    return <FullScreenLoader />;
+  }
 
   return (
     <Dialog open={isDialogOpen} onOpenChange={openDialog}>

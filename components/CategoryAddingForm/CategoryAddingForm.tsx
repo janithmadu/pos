@@ -126,15 +126,15 @@ function CategoryAddingForm() {
     setIsCategoryDialogOpen(false);
     const result = await Swal.fire({
       title: "Are you sure?",
-      text: " You need to delete this category.",
+      text: "You won't be able to revert this!",
       icon: "warning",
-      showConfirmButton: true,
-      showCloseButton: true,
-      focusConfirm: false,
       showCancelButton: true,
-      confirmButtonColor: "#3085d6",
-      cancelButtonColor: "#d33",
       confirmButtonText: "Yes, delete it!",
+      cancelButtonText: "Cancel",
+      background: "#1e1e1e",
+      color: "#fff",
+      confirmButtonColor: "#d33",
+      cancelButtonColor: "#555",
     });
 
     if (result.isConfirmed) {

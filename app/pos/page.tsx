@@ -1,4 +1,4 @@
-"use client"
+"use client";
 
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,80 +7,47 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Plus, Minus, Trash2, Receipt, CreditCard } from "lucide-react";
+import { useProductStore } from "@/stores/useProductStore";
+import { useCategoryStore } from "@/stores/useCategoryStore";
+import { Category } from "@/components/ProductAddingForm/ProductAddinFormZodSchema";
 
 interface Product {
   id: string;
   name: string;
+  category: Category;
   price: number;
+  stock: number;
+  sku: string;
   image: string;
-  category: string;
+  minStock: number;
+  lastUpdated: string;
 }
 
 interface CartItem extends Product {
   quantity: number;
 }
 
-const products: Product[] = [
-  {
-    id: "1",
-    name: "Coffee Latte",
-    price: 4.99,
-    image: "https://images.unsplash.com/photo-1541167760496-1628856ab772?w=200",
-    category: "drinks"
-  },
-  {
-    id: "2",
-    name: "Americano",
-    price: 3.99,
-    image: "https://images.unsplash.com/photo-1580933073521-dc49ac0d4e6a?w=200",
-    category: "drinks"
-  },
-  {
-    id: "3",
-    name: "Croissant",
-    price: 2.99,
-    image: "https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=200",
-    category: "food"
-  },
-  {
-    id: "4",
-    name: "Blueberry Muffin",
-    price: 3.49,
-    image: "https://images.unsplash.com/photo-1607958996333-41aef7caefaa?w=200",
-    category: "food"
-  },
-  {
-    id: "5",
-    name: "Green Tea",
-    price: 3.99,
-    image: "https://images.unsplash.com/photo-1627435601361-ec25f5b1d0e5?w=200",
-    category: "drinks"
-  },
-  {
-    id: "6",
-    name: "Chocolate Cake",
-    price: 5.99,
-    image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=200",
-    category: "food"
-  },
-];
-
 export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  const getProduct = useProductStore((state) => state.products);
+  const category = useCategoryStore((state) => state.categories);
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = activeCategory === "all" || product.category === activeCategory;
+  const filteredProducts = getProduct.filter((product) => {
+    const matchesSearch = product.name
+      .toLowerCase()
+      .includes(searchTerm.toLowerCase());
+    const matchesCategory =
+      activeCategory === "all" || product.category.name === activeCategory;
     return matchesSearch && matchesCategory;
   });
 
   const addToCart = (product: Product) => {
-    setCart(currentCart => {
-      const existingItem = currentCart.find(item => item.id === product.id);
+    setCart((currentCart) => {
+      const existingItem = currentCart.find((item) => item.id === product.id);
       if (existingItem) {
-        return currentCart.map(item =>
+        return currentCart.map((item) =>
           item.id === product.id
             ? { ...item, quantity: item.quantity + 1 }
             : item
@@ -91,7 +58,9 @@ export default function POSPage() {
   };
 
   const removeFromCart = (productId: string) => {
-    setCart(currentCart => currentCart.filter(item => item.id !== productId));
+    setCart((currentCart) =>
+      currentCart.filter((item) => item.id !== productId)
+    );
   };
 
   const updateQuantity = (productId: string, newQuantity: number) => {
@@ -99,16 +68,17 @@ export default function POSPage() {
       removeFromCart(productId);
       return;
     }
-    setCart(currentCart =>
-      currentCart.map(item =>
-        item.id === productId
-          ? { ...item, quantity: newQuantity }
-          : item
+    setCart((currentCart) =>
+      currentCart.map((item) =>
+        item.id === productId ? { ...item, quantity: newQuantity } : item
       )
     );
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const subtotal = cart.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0
+  );
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + tax;
 
@@ -128,15 +98,27 @@ export default function POSPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="all" className="mb-6">
-          <TabsList>
-            <TabsTrigger value="all" onClick={() => setActiveCategory("all")}>All</TabsTrigger>
-            <TabsTrigger value="drinks" onClick={() => setActiveCategory("drinks")}>Drinks</TabsTrigger>
-            <TabsTrigger value="food" onClick={() => setActiveCategory("food")}>Food</TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="mb-6">
+          <div className="max-w-[600px] custom-scroll overflow-x-auto whitespace-nowrap flex gap-2">
+            <button
+              onClick={() => setActiveCategory("all")}
+              className="min-w-max px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
+            >
+              All
+            </button>
+            {category.map((cate) => (
+              <button
+                key={cate.id}
+                onClick={() => setActiveCategory(cate.name)}
+                className="min-w-max px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition"
+              >
+                {cate.name}
+              </button>
+            ))}
+          </div>
+        </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid  max-h-[460px] overflow-y-scroll  grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredProducts.map((product) => (
             <Card
               key={product.id}
@@ -150,7 +132,9 @@ export default function POSPage() {
                   className="w-full h-32 object-cover rounded-md mb-3"
                 />
                 <h3 className="font-medium">{product.name}</h3>
-                <p className="text-sm text-muted-foreground">${product.price.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">
+                  ${product.price}
+                </p>
               </CardContent>
             </Card>
           ))}
@@ -166,7 +150,10 @@ export default function POSPage() {
 
           <ScrollArea className="flex-1 p-4">
             {cart.map((item) => (
-              <div key={item.id} className="flex items-center mb-4 bg-background rounded-lg p-3">
+              <div
+                key={item.id}
+                className="flex items-center mb-4 bg-background rounded-lg p-3"
+              >
                 <img
                   src={item.image}
                   alt={item.name}
