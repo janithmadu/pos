@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -12,66 +12,66 @@ import {
   CreditCard,
   Store,
   Settings,
-  Truck
-} from "lucide-react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+  Truck,
+} from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const routes = [
   {
-    label: 'Dashboard',
+    label: "Dashboard",
     icon: LayoutDashboard,
-    href: '/dashboard',
+    href: "/dashboard",
   },
   {
-    label: 'Sales & Checkout',
+    label: "Sales & Checkout",
     icon: ShoppingCart,
-    href: '/pos',
+    href: "/pos",
   },
   {
-    label: 'Inventory',
+    label: "Inventory",
     icon: Package,
-    href: '/inventory',
+    href: "/inventory",
   },
   {
-    label: 'User Management',
+    label: "User Management",
     icon: Users,
-    href: '/users',
+    href: "/users",
   },
   {
-    label: 'Customers',
+    label: "Customers",
     icon: UserCircle,
-    href: '/customers',
+    href: "/customers",
   },
   {
-    label: 'Reports',
+    label: "Reports",
     icon: BarChart3,
-    href: '/reports',
+    href: "/reports",
   },
   {
-    label: 'Payments',
+    label: "Payments",
     icon: CreditCard,
-    href: '/payments',
+    href: "/payments",
   },
   {
-    label: 'Multi-Store',
+    label: "Multi-Store",
     icon: Store,
-    href: '/stores',
+    href: "/stores",
   },
   {
-    label: 'Orders & Delivery',
+    label: "Orders & Delivery",
     icon: Truck,
-    href: '/orders',
+    href: "/orders",
   },
   {
-    label: 'Settings',
+    label: "Settings",
     icon: Settings,
-    href: '/settings',
+    href: "/settings",
   },
 ];
 
 export default function Sidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <div className="space-y-4 py-4 flex flex-col h-full bg-slate-900 text-white">
@@ -86,7 +86,9 @@ export default function Sidebar() {
               href={route.href}
               className={cn(
                 "text-sm group flex p-3 w-full justify-start font-medium cursor-pointer hover:text-white hover:bg-white/10 rounded-lg transition",
-                pathname === route.href ? "text-white bg-white/10" : "text-zinc-400"
+                pathname === route.href
+                  ? "text-white bg-white/10"
+                  : "text-zinc-400"
               )}
             >
               <div className="flex items-center flex-1">
@@ -98,5 +100,5 @@ export default function Sidebar() {
         </div>
       </div>
     </div>
-  )
+  );
 }

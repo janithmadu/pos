@@ -1,15 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Minus, Trash2, Receipt, CreditCard } from "lucide-react";
+import {
+  Search,
+  Plus,
+  Minus,
+  Trash2,
+  Receipt,
+  CreditCard,
+  Banknote,
+} from "lucide-react";
 import { useProductStore } from "@/stores/useProductStore";
 import { useCategoryStore } from "@/stores/useCategoryStore";
 import { Category } from "@/components/ProductAddingForm/ProductAddinFormZodSchema";
+import { toast } from "react-toastify";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { useTokenStore } from "@/stores/useTokenStore";
 
 interface Product {
   id: string;
@@ -32,7 +50,10 @@ export default function POSPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const getProduct = useProductStore((state) => state.products);
+  const fetchProduct = useProductStore((state) => state.fetchProducts);
   const category = useCategoryStore((state) => state.categories);
+  const [Modle, setModle] = useState<boolean>(false);
+  const token = useTokenStore((state) => state.accessToken);
 
   const filteredProducts = getProduct.filter((product) => {
     const matchesSearch = product.name
@@ -44,17 +65,41 @@ export default function POSPage() {
   });
 
   const addToCart = (product: Product) => {
-    setCart((currentCart) => {
-      const existingItem = currentCart.find((item) => item.id === product.id);
-      if (existingItem) {
-        return currentCart.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...currentCart, { ...product, quantity: 1 }];
+    const getCartProduct = cart.filter((cartItem) => {
+      return cartItem.id === product.id;
     });
+    if (getCartProduct.length === 0) {
+      setCart((currentCart) => {
+        const existingItem = currentCart.find((item) => item.id === product.id);
+        if (existingItem) {
+          return currentCart.map((item) =>
+            item.id === product.id
+              ? { ...item, quantity: item.quantity + 1 }
+              : item
+          );
+        }
+        return [...currentCart, { ...product, quantity: 1 }];
+      });
+      return null;
+    } else {
+      if (product.stock > getCartProduct[0]?.quantity) {
+        setCart((currentCart) => {
+          const existingItem = currentCart.find(
+            (item) => item.id === product.id
+          );
+          if (existingItem) {
+            return currentCart.map((item) =>
+              item.id === product.id
+                ? { ...item, quantity: item.quantity + 1 }
+                : item
+            );
+          }
+          return [...currentCart, { ...product, quantity: 1 }];
+        });
+      } else {
+        toast.error("Oops! This product is currently out of stock.");
+      }
+    }
   };
 
   const removeFromCart = (productId: string) => {
@@ -64,15 +109,22 @@ export default function POSPage() {
   };
 
   const updateQuantity = (productId: string, newQuantity: number) => {
+    const products = getProduct.filter((product) => {
+      return product.id === productId;
+    });
     if (newQuantity < 1) {
       removeFromCart(productId);
       return;
     }
-    setCart((currentCart) =>
-      currentCart.map((item) =>
-        item.id === productId ? { ...item, quantity: newQuantity } : item
-      )
-    );
+    if (products[0].stock >= newQuantity) {
+      setCart((currentCart) =>
+        currentCart.map((item) =>
+          item.id === productId ? { ...item, quantity: newQuantity } : item
+        )
+      );
+    } else {
+      toast.error("Oops! This product is currently out of stock.");
+    }
   };
 
   const subtotal = cart.reduce(
@@ -81,6 +133,59 @@ export default function POSPage() {
   );
   const tax = subtotal * 0.1; // 10% tax
   const total = subtotal + tax;
+
+  // TO perform orader need product ID, user ID, quantity, paymentMethod transaction ID
+
+  const createOrder = async (method: string) => {
+    if (cart.length === 0) {
+      toast.error("No products in the cart!");
+    }
+
+    const productDetails = cart.map((car) => {
+      return { productId: car.id, quantity: car.quantity };
+    });
+
+    try {
+      const createOrder = await fetch("/api/protect/order", {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId: "1221312sdfsdfe213123",
+          items: productDetails,
+          paymentMethod: method,
+          transactionId: null,
+        }),
+      });
+
+      const response = await createOrder.json();
+      console.log(response);
+      if (createOrder.ok) {
+        toast.success("Order created successfully!  ");
+        fetchProduct(token as string);
+        setCart([]);
+        printOrderResponse(response)
+      } else {
+        toast.error(response.error);
+      }
+    } catch (error) {
+      console.log(error);
+      setCart([]);
+    }
+  };
+
+  const printOrderResponse = (response: any) => {
+    const printWindow = window.open('', '', 'height=600,width=800');
+    printWindow?.document.write('<html><head><title>Order Confirmation</title></head><body>');
+    printWindow?.document.write('<h1>Order Confirmation</h1>');
+    printWindow?.document.write(`<pre>${JSON.stringify(response, null, 2)}</pre>`);
+    printWindow?.document.write('</body></html>');
+    printWindow?.document.close();
+    printWindow?.print();
+  };
 
   return (
     <div className="flex h-screen">
@@ -122,10 +227,30 @@ export default function POSPage() {
           {filteredProducts.map((product) => (
             <Card
               key={product.id}
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => addToCart(product)}
+              className={`${
+                product.stock <= 0
+                  ? " hover:shadow-lg transition-shadow"
+                  : "cursor-pointer hover:shadow-lg transition-shadow"
+              }`}
+              onClick={() => {
+                if (product.stock <= 0) {
+                  return null;
+                } else {
+                  addToCart(product);
+                }
+              }}
             >
               <CardContent className="p-4">
+                {product.stock > 0 ? (
+                  <></>
+                ) : (
+                  <div className=" flex justify-end items-center">
+                    <h1 className="text-xs text-end mb-2 bg-red-700 p-1 rounded-full ">
+                      Out of Stock
+                    </h1>
+                  </div>
+                )}
+
                 <img
                   src={product.image}
                   alt={product.name}
@@ -133,7 +258,7 @@ export default function POSPage() {
                 />
                 <h3 className="font-medium">{product.name}</h3>
                 <p className="text-sm text-muted-foreground">
-                  ${product.price}
+                  LKR.{product.price}
                 </p>
               </CardContent>
             </Card>
@@ -162,7 +287,7 @@ export default function POSPage() {
                 <div className="ml-4 flex-1">
                   <h3 className="font-medium">{item.name}</h3>
                   <p className="text-sm text-muted-foreground">
-                    ${(item.price * item.quantity).toFixed(2)}
+                    LKR {(item.price * item.quantity).toFixed(2)}
                   </p>
                   <div className="flex items-center mt-1">
                     <Button
@@ -200,15 +325,15 @@ export default function POSPage() {
             <div className="space-y-2">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>LKR {subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Tax (10%)</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>LKR {tax.toFixed(2)}</span>
               </div>
               <div className="flex justify-between font-bold">
                 <span>Total</span>
-                <span>${total.toFixed(2)}</span>
+                <span>LKR {total.toFixed(2)}</span>
               </div>
             </div>
 
@@ -217,10 +342,46 @@ export default function POSPage() {
                 <Receipt className="mr-2 h-4 w-4" />
                 Print
               </Button>
-              <Button className="w-full">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Pay
-              </Button>
+
+              <Dialog open={Modle} onOpenChange={setModle}>
+                <DialogTrigger className="flex justify-center items-center rounded-lg bg-white">
+                  <CreditCard className="mr-2 h-4 w-4 text-black" />
+                  <h1 className="text-black font-bold">Pay</h1>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Choose a payment method.</DialogTitle>
+                    <DialogDescription></DialogDescription>
+                  </DialogHeader>
+                  <div className="flex justify-between">
+                    <Card
+                      onClick={() => {
+                        createOrder("CARD");
+                        setModle(false);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <CardContent className="p-3 flex flex-col justify-center items-center ">
+                        <CreditCard />
+                        <h1>Card Payment</h1>
+                      </CardContent>
+                    </Card>
+
+                    <Card
+                      onClick={() => {
+                        createOrder("CASH");
+                        setModle(false);
+                      }}
+                      className="cursor-pointer"
+                    >
+                      <CardContent className="p-3 flex flex-col justify-center items-center ">
+                        <Banknote />
+                        <h1>Cash Payment</h1>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </div>
